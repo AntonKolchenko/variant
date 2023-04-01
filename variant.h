@@ -142,7 +142,7 @@ struct variant : base<is_all_trivially_destructible_v<Args...>, Args...> {
     this->destroy();
     this->put(in_place_index<I>, std::forward<Types>(types)...);
     this->m_index = I;
-    return const_cast<variant_alternative_t<I, variant>&>(this->m_storage.get(in_place_index<I>));
+    return this->m_storage.get(in_place_index<I>);
   }
 
   constexpr void swap(variant& rhs) noexcept(((std::is_nothrow_move_constructible_v<Args> &&
