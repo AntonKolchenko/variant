@@ -78,18 +78,12 @@ struct variant : base<is_all_trivially_destructible_v<Args...>, Args...> {
       all_is_nothrow_copy_constructible_v<Args...>&& all_is_nothrow_copy_assignable_v<Args...>)
       requires(all_is_copy_constructible_v<Args...>&& all_is_copy_assignable_v<Args...>) {
 
-    visit_by_index(
-        [this]<std::size_t I>(in_place_index_t<I>, variant const& other) {
-          if (this->index() != other.index()) {
-            this->destroy();
-            this->operator=(variant(other));
-          } else {
-            if (!this->valueless_by_exception()) {
-              get<I>(*this) = get<I>(other);
-            }
-          }
-        },
-        rhs);
+    if (this->index() != rhs.index()) {
+      this->operator=(variant(rhs));
+    } else if (!this->valueless_by_exception()) {
+      visit_by_index(
+          [this]<std::size_t I>(in_place_index_t<I>, variant const& other) { get<I>(*this) = get<I>(other); }, rhs);
+    }
 
     this->m_index = rhs.index();
 
@@ -145,13 +139,8 @@ struct variant : base<is_all_trivially_destructible_v<Args...>, Args...> {
   template <std::size_t I, class... Types>
   constexpr variant_alternative_t<I, variant>& emplace(Types&&... types)
       requires(std::is_constructible_v<variant_alternative_t<I, variant>, Types...>&& I < variant_size_v<variant>) {
-    try {
-      this->destroy();
-      this->put(in_place_index<I>, std::forward<Types>(types)...);
-    } catch (...) {
-      this->m_index = variant_npos;
-      throw;
-    }
+    this->destroy();
+    this->put(in_place_index<I>, std::forward<Types>(types)...);
     this->m_index = I;
     return const_cast<variant_alternative_t<I, variant>&>(this->m_storage.get(in_place_index<I>));
   }
@@ -183,9 +172,7 @@ struct variant : base<is_all_trivially_destructible_v<Args...>, Args...> {
       return;
     }
 
-    variant tmp(std::move(*this));
-    *this = std::move(rhs);
-    rhs = std::move(tmp);
+    std::swap(*this, rhs);
   }
 };
 
@@ -219,8 +206,7 @@ constexpr std::add_pointer_t<const T> get_if(variant<Types...> const* pv) noexce
 template <std::size_t I, class... Types>
 constexpr variant_alternative_t<I, variant<Types...>>& get(variant<Types...>& v) {
   if (v.index() == I) {
-    using type = variant_alternative_t<I, variant<Types...>>&;
-    return const_cast<type>(v.m_storage.template get(in_place_index<I>));
+    return v.m_storage.get(in_place_index<I>);
   }
   throw bad_variant_access();
 }
@@ -231,11 +217,14 @@ constexpr variant_alternative_t<I, variant<Types...>>&& get(variant<Types...>&& 
 
 template <std::size_t I, class... Types>
 constexpr variant_alternative_t<I, variant<Types...>> const& get(variant<Types...> const& v) {
-  return get<I>(const_cast<variant<Types...>&>(v));
+  if (v.index() == I) {
+    return v.m_storage.get(in_place_index<I>);
+  }
+  throw bad_variant_access();
 }
 template <std::size_t I, class... Types>
 constexpr const variant_alternative_t<I, variant<Types...>>&& get(variant<Types...> const&& v) {
-  return std::move(get<I>(const_cast<variant<Types...>&>(v)));
+  return std::move(get<I>(v));
 }
 
 template <class T, class... Types, std::size_t I = index_by_type_v<T, Types...>>

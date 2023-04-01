@@ -37,6 +37,15 @@ union storage<true, Head, Tail...> {
   }
 
   template <std::size_t I>
+  constexpr auto& get(in_place_index_t<I>) {
+    if constexpr (I == 0) {
+      return head;
+    } else {
+      return tail.get(in_place_index<I - 1>);
+    }
+  }
+
+  template <std::size_t I>
   constexpr auto const& get(in_place_index_t<I>) const {
     if constexpr (I == 0) {
       return head;
@@ -80,6 +89,15 @@ union storage<Tr, Head, Tail...> {
 
   template <std::size_t I>
   constexpr auto const& get(in_place_index_t<I>) const {
+    if constexpr (I == 0) {
+      return head;
+    } else {
+      return tail.get(in_place_index<I - 1>);
+    }
+  }
+
+  template <std::size_t I>
+  constexpr auto& get(in_place_index_t<I>) {
     if constexpr (I == 0) {
       return head;
     } else {

@@ -57,17 +57,24 @@ constexpr decltype(auto) at(Matrix&& matrix, std::size_t index, Indexes... other
   return at(std::forward<Matrix>(matrix)[index], others...);
 }
 
+
+template <typename Visitor, typename Variant>
+inline constexpr auto visit_by_index_array = get_array<Visitor, Variant>();
+
 template <typename Visitor, typename Variant>
 constexpr decltype(auto) visit_by_index(Visitor&& visitor, Variant&& variant) {
-  return at(get_array<Visitor, Variant>(), variant.index())(std::forward<Visitor>(visitor),
+  return at(visit_by_index_array<Visitor, Variant>, variant.index())(std::forward<Visitor>(visitor),
                                                             std::forward<Variant>(variant));
 }
+
+template <typename Visitor, typename... Variants>
+inline constexpr auto visit_matrix = get_matrix<Visitor, Variants...>();
 
 template <typename Visitor, typename... Variants>
 constexpr decltype(auto) visit(Visitor&& visitor, Variants&&... variants) {
   if ((variants.valueless_by_exception() || ...)) {
     throw bad_variant_access();
   }
-  return at(get_matrix<Visitor, Variants...>(), variants.index()...)(std::forward<Visitor>(visitor),
+  return at(visit_matrix<Visitor, Variants...>, variants.index()...)(std::forward<Visitor>(visitor),
                                                                      std::forward<Variants>(variants)...);
 }
